@@ -69,23 +69,30 @@ func main() {
 func web() {
 	app := fiber.New()
 
-	app.Get("/", func(ctx *fiber.Ctx) error {
+	app.Get("/:name", func(ctx *fiber.Ctx) error {
 		q := new(Query)
 		if err := ctx.QueryParser(q); err != nil {
 			return err
 		}
+		q.Name = ctx.Params("name")
 		return ctx.JSON(find(q))
 	})
 
 	app.Listen(":3000")
+
+	// https://wxpusher.dingliqc.com/docs/#/?id=%e5%8f%91%e9%80%81%e6%b6%88%e6%81%af-1
+	// 消息推送
+
 }
 
 func find(q *Query) []Item {
 
-	url := "https://search.smzdm.com/?c=faxian&v=b"
-	if q.Name != "" {
-		url += "&s=" + q.Name
+	var list = make([]Item, 0)
+
+	if q.Name == "" {
+		return list
 	}
+	url := "https://search.smzdm.com/?c=faxian&v=b" + "&s=" + q.Name
 	if q.Page != "" {
 		url += "&p=" + q.Page
 	}
@@ -95,8 +102,6 @@ func find(q *Query) []Item {
 	if q.MinPrice != "" {
 		url += "&min_price=" + q.MinPrice
 	}
-
-	var list []Item
 	c := colly.NewCollector()
 	// Find and visit all links
 	c.OnHTML("#feed-main-list .feed-row-wide", func(e *colly.HTMLElement) {
@@ -117,8 +122,10 @@ func find(q *Query) []Item {
 
 		// 点赞 踩
 		thumbs := e.ChildTexts(".z-feed-foot-l .unvoted-wrap span")
-		i.TUp = thumbs[0]
-		i.TDown = thumbs[1]
+		if thumbs != nil && len(thumbs) > 0 {
+			i.TUp = thumbs[0]
+			i.TDown = thumbs[1]
+		}
 		// 收藏
 		i.Collect = e.ChildText(".z-feed-foot-l .feed-btn-fav span")
 		// 评论
